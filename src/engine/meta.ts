@@ -5,17 +5,20 @@ import type { EndingId } from './types'
 
 export type TextSpeed = 'slow' | 'normal' | 'fast' | 'instant'
 export type FontSize = 'small' | 'medium' | 'large'
+export type ViewMode = '3d' | '2d'
 
 export interface Settings {
   volume: number
   muted: boolean
   textSpeed: TextSpeed
   fontSize: FontSize
+  /** 3D: tự điều khiển nhân vật; 2D: bấm chọn kiểu point-and-click. */
+  view: ViewMode
 }
 
 export const TEXT_SPEED_MS: Record<TextSpeed, number> = { slow: 45, normal: 26, fast: 12, instant: 0 }
 
-const DEFAULT_SETTINGS: Settings = { volume: 0.7, muted: false, textSpeed: 'normal', fontSize: 'medium' }
+const DEFAULT_SETTINGS: Settings = { volume: 0.7, muted: false, textSpeed: 'normal', fontSize: 'medium', view: '3d' }
 
 interface MetaState {
   settings: Settings

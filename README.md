@@ -1,6 +1,11 @@
 # Làng Sương Mù
 
-Game phiêu lưu giải đố point-and-click kiểu visual novel, viết bằng **React + Vite + TypeScript**, quản lý state bằng **Zustand**. Không dùng game engine hay asset ngoài: toàn bộ cảnh và nhân vật vẽ bằng SVG, sương mù chạy trên canvas, âm thanh tổng hợp bằng Web Audio API.
+Game phiêu lưu giải đố viết bằng **React + Vite + TypeScript**, quản lý state bằng **Zustand**, có hai chế độ hình ảnh:
+
+- **3D (mặc định):** góc nhìn thứ ba, bạn tự điều khiển lữ khách đi lại trong làng, tới gần người và vật để nói chuyện, xem xét, đi qua các cổng sáng để sang cảnh khác. Dựng bằng three.js từ hình khối cơ bản.
+- **2D:** point-and-click kiểu visual novel, cảnh vẽ bằng SVG.
+
+Đổi chế độ trong **Cài đặt → Chế độ hình ảnh**. Máy không hỗ trợ WebGL sẽ tự chuyển sang 2D. Không dùng game engine hay asset ngoài: sương mù chạy trên canvas, âm thanh tổng hợp bằng Web Audio API.
 
 > Bạn là một lữ khách tỉnh dậy giữa chợ phiên của một ngôi làng vùng núi phía Bắc. Một Người lạ đội nón nói: *"Sương sẽ tan sau 3 ngày. Ai còn kẹt trong làng lúc đó sẽ ở lại mãi mãi."* Bạn phải đi qua 4 khu vực để tìm đường ra. Mỗi khu dạy một kỹ năng tư duy: **quan sát, logic, ngôn ngữ, nghi ngờ nguồn tin**.
 
@@ -17,7 +22,22 @@ npm run preview    # xem thử bản build
 npm test           # chạy toàn bộ unit test (Vitest)
 ```
 
-Game hỗ trợ màn hình dọc trên điện thoại (từ 375px) và desktop. Chuột, chạm và bàn phím đều dùng được: `Space`/`Enter` để đọc tiếp, phím số `1–9` để chọn câu trả lời, `Esc` để đóng bảng.
+Game hỗ trợ màn hình dọc trên điện thoại (từ 375px) và desktop.
+
+### Điều khiển (chế độ 3D)
+
+| Thao tác | Máy tính | Điện thoại |
+| --- | --- | --- |
+| Đi lại | `W A S D` hoặc phím mũi tên | Joystick ảo góc trái dưới |
+| Xoay camera | Kéo chuột (hoặc `Q` / `R`) | Vuốt trên màn hình |
+| Tương tác với người/vật gần nhất | `E` (hoặc `F`), hoặc nút vàng góc phải | Nút vàng góc phải |
+| Tự đi tới rồi tương tác | Bấm vào người/vật | Chạm vào người/vật |
+| Đi tới một điểm | Bấm xuống đất | Chạm xuống đất |
+| Sang cảnh khác | Bước vào cổng sáng có mũi tên | như máy tính |
+
+Cổng "quay lui" nằm sau lưng lúc bạn vừa vào cảnh, xoay camera lại để thấy.
+
+Trong hội thoại: `Space`/`Enter` để đọc tiếp, phím số `1–9` để chọn câu trả lời, `Esc` để đóng bảng.
 
 ### Chế độ debug
 
@@ -51,7 +71,9 @@ src/
     area1/ … area4/  Mỗi khu vực: scenes.ts, characters.ts, dialogues.ts, puzzles.ts, clues.ts, index.ts
     index.ts         Danh sách khu vực + các sự kiện toàn cục (hạn chót, New Game+, lớp phủ)
   ui/                Component giao diện (màn tiêu đề, sân khấu, HUD, hộp thoại, sổ tay, túi đồ, câu đố…)
-  art/               SVG: nền cảnh, nhân vật, đồ vật, bản đồ làng, sương mù canvas
+  art/               SVG (chế độ 2D): nền cảnh, nhân vật, đồ vật, bản đồ làng, sương mù canvas
+  three/             Chế độ 3D: thế giới (World.ts), mô hình low-poly (models.ts),
+                     môi trường từng cảnh (environment.ts), quy đổi tọa độ % → 3D (layout.ts)
   audio/             Âm thanh tổng hợp (gió, chuông, trống đình, tiếng click…)
   tests/             Unit test
 public/assets/       Chỗ để ảnh vẽ tay thay thế SVG sau này (xem public/assets/README.md)
@@ -167,7 +189,12 @@ Tab sổ tay, bảng debug và test toàn vẹn dữ liệu tự nhận khu vự
 - `time.test.ts`: hệ thống thời gian, chuyển buổi, hạn chót "Ngày 4";
 - `endings.test.ts`: điều kiện 4 kết thúc;
 - `data.test.ts`: toàn vẹn dữ liệu (mọi cảnh đi tới được, không tham chiếu hỏng, không kẹt hội thoại);
-- `playthrough.test.ts`: mô phỏng người chơi đi hết 4 khu và tới từng kết thúc, gồm cả lần chơi thứ 2 (New Game+).
+- `playthrough.test.ts`: mô phỏng người chơi đi hết 4 khu và tới từng kết thúc, gồm cả lần chơi thứ 2 (New Game+);
+- `layout3d.test.ts`: bố cục 3D của từng cảnh (vật nằm trong sân chơi, người chơi không bị kẹt khi xuất hiện).
+
+### 3D dùng chung dữ liệu với 2D
+
+Chế độ 3D không cần dữ liệu riêng. Tọa độ % của hotspot được quy đổi tự động: `x` thành trục ngang, đáy hotspot (`y + h`) thành độ sâu. Hotspot lối đi có sprite `exitLeft`/`exitRight`/`exitUp`/`exitDown` trở thành cổng sáng ở rìa trái/phải/xa/sau lưng. Muốn có mô hình 3D riêng cho một sprite mới, thêm hàm dựng vào `OBJECTS` (đồ vật) hoặc `CHARACTERS` (nhân vật) trong `src/three/models.ts`, và môi trường cho khóa nền mới trong `src/three/environment.ts`. Nếu chưa thêm, game vẫn chạy với mô hình mặc định.
 
 ---
 

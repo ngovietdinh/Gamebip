@@ -1,11 +1,15 @@
 import { synth } from '../audio/synth'
-import { useMeta, type FontSize, type TextSpeed } from '../engine/meta'
+import { useMeta, type FontSize, type TextSpeed, type ViewMode } from '../engine/meta'
 
 const SPEEDS: [TextSpeed, string][] = [
   ['slow', 'Chậm'],
   ['normal', 'Vừa'],
   ['fast', 'Nhanh'],
   ['instant', 'Tức thì'],
+]
+const VIEWS: [ViewMode, string][] = [
+  ['3d', '3D — tự điều khiển'],
+  ['2d', '2D — bấm chọn'],
 ]
 const SIZES: [FontSize, string][] = [
   ['small', 'Nhỏ'],
@@ -18,6 +22,16 @@ export function SettingsPanel() {
   const set = useMeta((s) => s.setSettings)
   return (
     <div className="settings">
+      <div className="setting">
+        <span>Chế độ hình ảnh</span>
+        <div className="seg">
+          {VIEWS.map(([k, l]) => (
+            <button key={k} className={settings.view === k ? 'on' : ''} onClick={() => set({ view: k })}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="setting">
         <label htmlFor="vol">Âm lượng</label>
         <div className="row">

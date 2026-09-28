@@ -1,3 +1,5 @@
+import { lazy, Suspense } from 'react'
+import { useMeta } from '../engine/meta'
 import { registry, useGame } from '../game'
 import { DialogueBox } from './DialogueBox'
 import { FakeGameOver } from './FakeGameOver'
@@ -9,7 +11,10 @@ import { PuzzleModal } from './PuzzleModal'
 import { Stage } from './Stage'
 import { VerdictModal } from './VerdictModal'
 
+const Stage3D = lazy(() => import('../three/Stage3D'))
+
 export function GameScreen() {
+  const view = useMeta((s) => s.settings.view)
   const modal = useGame((s) => s.modal)
   const overlay = useGame((s) => s.overlay)
   const usingItem = useGame((s) => s.usingItem)
@@ -17,7 +22,13 @@ export function GameScreen() {
 
   return (
     <div className="game">
-      <Stage />
+      {view === '3d' ? (
+        <Suspense fallback={<div className="stage-loading">Đang dựng làng…</div>}>
+          <Stage3D />
+        </Suspense>
+      ) : (
+        <Stage />
+      )}
       <HUD />
       {usingItem && (
         <div className="using-banner">
