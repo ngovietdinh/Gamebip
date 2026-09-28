@@ -1497,6 +1497,18 @@ button.fake-letter:focus-visible {
   background: rgba(22, 28, 33, 0.75);
   backdrop-filter: blur(4px);
 }
+.title-other {
+  font-size: 14px;
+  color: #fff;
+  background: rgba(60, 10, 10, 0.75);
+  border: 1px solid rgba(220, 80, 70, 0.6);
+  padding: 8px 14px;
+  border-radius: 999px;
+  text-decoration: none;
+}
+.title-other:hover {
+  background: rgba(110, 20, 20, 0.85);
+}
 .title-foot {
   font-size: 13px;
   color: #e3e8e5;

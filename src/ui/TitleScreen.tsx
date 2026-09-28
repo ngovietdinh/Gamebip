@@ -48,6 +48,9 @@ export function TitleScreen() {
         <p className="title-foot">
           Kết thúc đã mở: {endings}/4 · Chạm để chơi, nên đeo tai nghe
         </p>
+        <a className="title-other" href="./acmong/">
+          Game kinh dị mới: <b>3:17 — Kẻ Không Mặt</b> →
+        </a>
       </div>
 
       {panel === 'load' && (

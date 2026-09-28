@@ -299,3 +299,92 @@ KHU 4: BẾN ĐÒ (Nghi ngờ nguồn tin)
 | Tin công cụ tuyệt đối | Đi xuôi dòng theo bản đồ |
 
 </details>
+
+---
+
+# 3:17 — Kẻ Không Mặt (game kinh dị sinh tồn)
+
+Game thứ hai trong repo, chơi tại đường dẫn `/acmong/` (khi chạy `npm run dev`: `http://localhost:5173/acmong/`). Đây là game kinh dị tâm lý kết hợp sinh tồn, **góc nhìn thứ nhất 3D**. Bạn tỉnh dậy lúc 3 giờ 17 phút sáng trong căn nhà hồi bé, giờ đã biến thành ác mộng. Bạn phải giải mật mã trong bóng tối để mở từng căn phòng, gom 4 mảnh ký ức bị chôn vùi và thoát ra, trong khi **Kẻ Không Mặt** đi lại trong nhà.
+
+Có yếu tố kinh dị tâm lý, âm thanh đột ngột và hình ảnh chớp nháy, khuyến nghị 13+. Không có máu me. Muốn nhẹ hơn thì bật **Cài đặt → Giảm hù dọa**.
+
+## Cơ chế sinh tồn
+
+| Chỉ số | Hoạt động |
+| --- | --- |
+| **Đèn pin** | Hết pin dần (~90 giây một cục pin đầy). Nhặt **Pin** để nạp +40%. Pin yếu thì đèn chập chờn. Có mật mã **chỉ hiện ra khi tắt đèn**. |
+| **Tinh thần** | Tụt nhanh trong bóng tối, tụt mạnh khi nhìn thấy Kẻ Không Mặt ở gần. Hồi khi đứng dưới đèn trong nhà, khi trốn, hoặc uống **Thuốc an thần** (+35). Tinh thần thấp gây méo hình, tiếng thì thầm, ảo giác. Về 0 thì ngất (mất 1 máu). |
+| **Nhịp tim** | Tăng theo nỗi sợ và khoảng cách tới thực thể. Có tiếng tim đập thật. |
+| **Máu** | 3 máu. Bị bắt mất 1 máu và tỉnh lại ở điểm lưu. **Băng gạc** hồi 1 máu. Hết máu thì màn thua, được thử lại từ điểm lưu. |
+| **Thể lực** | Chạy (Shift) tốn thể lực. Kiệt sức phải hồi tới 25% mới chạy lại được. |
+| **Túi đồ** | Chỉ **4 ô**. Chìa khóa cũng chiếm chỗ. Đồ nhận được khi túi đầy thì nằm lại trong két/hộp, quay lại lấy sau. |
+
+**Kẻ Không Mặt** tuần tra khắp nhà, đi xuyên được cửa khóa (nó là ác mộng) nhưng không xuyên tường. Nó **nghe thấy tiếng chạy** (đi bộ thì gần như im lặng). Bật đèn thì bị nhìn thấy từ xa, tắt đèn chỉ bị thấy ở khoảng cách rất gần. Khi bị rượt: chạy rồi **trốn vào tủ / gầm giường**. Nếu nó thấy bạn chui vào, nó sẽ lôi bạn ra. Đèn trong nhà chập chờn khi nó tới gần.
+
+## Điều khiển
+
+| | Máy tính | Điện thoại |
+| --- | --- | --- |
+| Đi | `W A S D` / mũi tên | Joystick trái |
+| Nhìn | Chuột (bấm vào màn hình để khóa chuột) | Vuốt màn hình |
+| Chạy | `Shift` | Nút 🏃 (bật/tắt) |
+| Đèn pin | `F` | Nút 🔦 |
+| Tương tác / trốn / ra khỏi chỗ trốn | `E` | Nút ✋ hoặc chạm vào dòng gợi ý |
+| Túi đồ · Nhật ký · Tạm dừng | `Tab` · `J` · `Esc` | 🎒 · 📓 · ⏸ |
+| Dùng nhanh ô đồ | `1`–`4` | Chạm ô đồ |
+
+## Mã nguồn
+
+```
+src/horror/
+  level.ts      Bản đồ ASCII (1 ô = 2 m), va chạm, tầm nhìn, tìm đường A*
+  content.ts    Vật phẩm, vật tương tác, mật mã, ghi chú, 4 mảnh ký ức
+  sim.ts        Chỉ số sinh tồn (thuần logic) + bộ não Kẻ Không Mặt (tuần tra/nghe/rượt/lùng sục)
+  store.ts      Zustand: máu, tinh thần, pin, túi đồ, cờ, điểm lưu (localStorage), kết thúc, thành tựu
+  World.ts      Thế giới three.js góc nhìn thứ nhất: nhà, đèn pin, đèn chập chờn, các cảnh hù
+  props.ts      Đồ đạc low-poly và mô hình Kẻ Không Mặt
+  textures.ts   Texture vẽ bằng canvas (giấy dán tường, bảng đen, ảnh gia đình, gương…)
+  audio.ts      Âm thanh tổng hợp: nền u ám, tim đập, bước chân, thì thầm, tiếng rít, tiếng hét
+  ui/           Giao diện React: HUD, bàn phím mật mã, nhật ký, túi đồ, màn tiêu đề/kết thúc
+acmong/index.html   Trang vào game
+```
+
+`src/tests/horror.test.ts` kiểm tra:
+- bản đồ kín và mọi phòng đi tới được theo đúng thứ tự mở khóa;
+- va chạm và tầm nhìn;
+- **mọi mật mã suy ra được từ manh mối**;
+- chỉ số sinh tồn;
+- hành vi Kẻ Không Mặt (thấy, rượt, bắt, mất dấu khi trốn, nghe tiếng chạy);
+- túi 4 ô, điểm lưu và các kết thúc.
+
+## ⚠️ SPOILER: Lời giải 3:17
+
+<details>
+<summary>Bấm để xem</summary>
+
+| Nơi | Mật mã | Manh mối |
+| --- | --- | --- |
+| Hộp đồ chơi (phòng ngủ) | **418** | Tắt đèn pin rồi nhìn lên trần: sao dạ quang viết "4 1 8" |
+| Két sắt (phòng khách) | **5341** | 4 tấm ảnh: xếp theo năm 1998 → 2003 → 2007 → 2012, đếm số người: 5, 3, 4, 1 |
+| Ngăn bàn cô giáo (lớp học) | **683** | Bảng đen: 2 + 2 × 2 = **6**; 1, 1, 2, 3, 5 → **8**; một nửa của 2 cộng 2 = **3** |
+| Tủ thuốc (phòng tắm) | **2519** | Chữ trong gương viết ngược "9152", đọc lại cho xuôi |
+| Cửa chính (sảnh) | **0317** | 4 mảnh ký ức cho các số 0, 3, 1, 7. Đó cũng là giờ trên chiếc đồng hồ đứng im trong phòng ngủ (3:17) |
+
+Thứ tự:
+1. Phòng ngủ: nhặt đèn pin, mở hộp đồ chơi, lấy chìa phòng ngủ.
+2. Hành lang: Kẻ Không Mặt xuất hiện lần đầu.
+3. Phòng khách (luôn mở): mở két, lấy chìa lớp học.
+4. Lớp học: mở ngăn bàn, lấy chìa phòng tắm.
+5. Phòng tắm: mở tủ thuốc, lấy mảnh ký ức cuối.
+6. Cửa chính.
+
+Sảnh cửa chính luôn đi tới được: ai để ý đồng hồ 3:17 có thể nhập 0317 ngay để thoát sớm (thành tựu *Người đọc giờ*).
+
+**Kết thúc**
+- **Tỉnh giấc**: mở cửa chính và bước ra.
+- **Kết thật — Đứa trẻ trong tủ**: gom đủ 4 mảnh ký ức, quay về phòng ngủ, mở **tủ quần áo**. Kẻ Không Mặt xuất hiện ở cửa và tiến lại. Đừng chạy: giữ đèn pin soi thẳng vào nó đủ 6 giây, nó sẽ lùi lại và thu nhỏ thành chính bạn hồi bé.
+- **Mãi trong giấc mơ**: mất hết máu (được thử lại từ điểm lưu).
+
+**Thành tựu:** Đối mặt · Vô hình (không bị bắt lần nào) · Người đọc giờ · Vững vàng (kết thúc với tinh thần > 60).
+
+</details>
