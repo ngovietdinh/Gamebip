@@ -1,4 +1,4 @@
-import { cellCenter, findPath, lineOfSight, toCell } from './level'
+import { cellCenter, toCell, type Level } from './level'
 
 // ================================================================== Chỉ số sinh tồn
 
@@ -125,8 +125,12 @@ export class Entity {
   private stepAcc = 0
   /** Nó đã thấy người chơi chui vào chỗ trốn. */
   sawHide = false
+  /** Hệ số tốc độ và tầm nhìn (tùy chương, tăng khi nổi giận). */
+  speedMul = 1
+  sightMul = 1
 
   constructor(
+    private level: Level,
     private patrol: [number, number][],
     private open: () => Record<string, boolean>,
     private rng: Rng = Math.random,
@@ -143,6 +147,10 @@ export class Entity {
 
   /** Đặt ở điểm tuần tra xa người chơi nhất (sau khi bắt được người chơi). */
   placeFar(px: number, pz: number): void {
+    if (!this.patrol.length) {
+      this.place(px, pz, 'dormant')
+      return
+    }
     let best = this.patrol[0]
     let bestD = -1
     for (const p of this.patrol) {
@@ -161,17 +169,17 @@ export class Entity {
   canSee(p: PlayerSense): boolean {
     if (p.hidden) return false
     const d = Math.hypot(p.x - this.x, p.z - this.z)
-    let range = p.lightOn ? ENTITY.sightLit : ENTITY.sightDark
+    let range = (p.lightOn ? ENTITY.sightLit : ENTITY.sightDark) * this.sightMul
     // Phía sau lưng nó nhìn kém hơn.
     const toP = Math.atan2(p.x - this.x, p.z - this.z)
     let diff = Math.abs(toP - this.yaw) % (Math.PI * 2)
     if (diff > Math.PI) diff = Math.PI * 2 - diff
     if (diff > Math.PI * 0.6) range *= 0.45
-    return d < range && lineOfSight(this.x, this.z, p.x, p.z, this.open())
+    return d < range && this.level.lineOfSight(this.x, this.z, p.x, p.z, this.open())
   }
 
   private goTo(tx: number, tz: number): void {
-    const path = findPath(toCell(this.x, this.z), toCell(tx, tz), this.open(), true)
+    const path = this.level.findPath(toCell(this.x, this.z), toCell(tx, tz), this.open(), true)
     this.path = path ? path.slice(1) : []
   }
 
@@ -183,7 +191,7 @@ export class Entity {
     const dx = target.x - this.x
     const dz = target.z - this.z
     const d = Math.hypot(dx, dz)
-    const stepLen = speed * dt
+    const stepLen = speed * this.speedMul * dt
     if (d <= stepLen) {
       this.x = target.x
       this.z = target.z
@@ -285,7 +293,7 @@ export class Entity {
         break
       }
       case 'patrol': {
-        if (!this.path.length) {
+        if (!this.path.length && this.patrol.length) {
           this.patrolIdx = (this.patrolIdx + 1 + Math.floor(this.rng() * 2)) % this.patrol.length
           const c = cellCenter(...this.patrol[this.patrolIdx])
           this.goTo(c.x, c.z)
@@ -303,6 +311,77 @@ export class Entity {
       ev.step = true
     }
     return ev
+  }
+}
+
+// ================================================================== Những đứa trẻ không mặt
+
+export const SHADE = { speed: 2.6, touch: 0.85 }
+
+/**
+ * Bóng học sinh: đứng im khi bị nhìn (trong tầm mắt và đủ sáng), trườn tới gần khi bạn quay lưng.
+ * Chạm vào người chơi = mất máu; sau đó nó quay về chỗ cũ.
+ */
+export class Shade {
+  x: number
+  z: number
+  yaw = 0
+  moving = false
+  private path: [number, number][] = []
+  private repath = 0
+
+  constructor(
+    private level: Level,
+    readonly homeX: number,
+    readonly homeZ: number,
+  ) {
+    this.x = homeX
+    this.z = homeZ
+  }
+
+  reset(): void {
+    this.x = this.homeX
+    this.z = this.homeZ
+    this.path = []
+    this.moving = false
+  }
+
+  /**
+   * `seen`: người chơi đang nhìn vào nó (World tính theo góc nhìn + ánh sáng + tầm nhìn thẳng).
+   */
+  step(dt: number, px: number, pz: number, seen: boolean, open: Record<string, boolean>, hidden: boolean): { touched: boolean } {
+    const d = Math.hypot(px - this.x, pz - this.z)
+    this.yaw = Math.atan2(px - this.x, pz - this.z)
+    // Chỉ đuổi theo khi ở cùng khu vực, khá gần, và người chơi không trốn.
+    if (seen || hidden || d > 16) {
+      this.moving = false
+      return { touched: false }
+    }
+    this.repath -= dt
+    if (this.repath <= 0 || !this.path.length) {
+      const p = this.level.findPath(toCell(this.x, this.z), toCell(px, pz), open, false)
+      this.path = p ? p.slice(1) : []
+      this.repath = 0.5
+    }
+    const target = this.path.length ? cellCenter(this.path[0][0], this.path[0][1]) : { x: px, z: pz }
+    if (this.path.length <= 1) {
+      target.x = px
+      target.z = pz
+    }
+    const dx = target.x - this.x
+    const dz = target.z - this.z
+    const td = Math.hypot(dx, dz)
+    const s = SHADE.speed * dt
+    if (td <= s) {
+      this.x = target.x
+      this.z = target.z
+      if (this.path.length) this.path.shift()
+    } else {
+      this.x += (dx / td) * s
+      this.z += (dz / td) * s
+    }
+    this.moving = true
+    return { touched: Math.hypot(px - this.x, pz - this.z) < SHADE.touch }
   }
 }
 

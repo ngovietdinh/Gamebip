@@ -12,6 +12,10 @@ class HorrorAudio {
   private bpm = 70
   private heartVol = 0.3
   private ringing: number | null = null
+  private monitoring: number | null = null
+  private mood = ''
+  private moodGain: GainNode | null = null
+  private moodNodes: AudioScheduledSourceNode[] = []
   volume = 0.8
   reduce = false
 
@@ -154,13 +158,90 @@ class HorrorAudio {
   }
 
   /** Cập nhật theo trạng thái: nhịp tim, độ to tiếng thì thầm và nền. */
-  update(bpm: number, sanity: number, danger: number): void {
+  update(bpm: number, sanity: number, danger: number, mood = 'house'): void {
+    if (mood !== this.mood) this.setMood(mood)
     this.bpm = bpm
     this.heartVol = 0.15 + Math.min(1, danger + (100 - sanity) / 150) * 0.55
     if (!this.ctx) return
     const t = this.ctx.currentTime
     this.whisperGain?.gain.setTargetAtTime(sanity < 45 ? ((45 - sanity) / 45) * 0.9 : 0, t, 0.8)
     this.droneGain?.gain.setTargetAtTime(0.12 + danger * 0.2, t, 0.5)
+  }
+
+ /** Âm nền riêng mỗi chương: gió rít (nhà), gió lùa hành lang (trường), điện rì (bệnh viện), âm trầm vọng (giấc mơ). */
+  private setMood(mood: string): void {
+    this.mood = mood
+    if (!this.ctx || !this.master) return
+    const ctx = this.ctx
+    for (const n of this.moodNodes) {
+      try {
+        n.stop()
+      } catch {
+        /* đã dừng */
+      }
+    }
+    this.moodNodes = []
+    this.moodGain?.disconnect()
+    this.moodGain = ctx.createGain()
+    this.moodGain.gain.value = 0
+    this.moodGain.gain.setTargetAtTime(1, ctx.currentTime, 2)
+    this.moodGain.connect(this.master)
+    const out = this.moodGain
+    const osc = (f: number, type: OscillatorType, vol: number) => {
+      const o = ctx.createOscillator()
+      o.type = type
+      o.frequency.value = f
+      const g = ctx.createGain()
+      g.gain.value = vol
+      o.connect(g)
+      g.connect(out)
+      o.start()
+      this.moodNodes.push(o)
+      return { o, g }
+    }
+    const wind = (freq: number, q: number, vol: number, lfoRate: number) => {
+      const n = this.noiseSrc(true)
+      if (!n) return
+      const bp = ctx.createBiquadFilter()
+      bp.type = 'bandpass'
+      bp.frequency.value = freq
+      bp.Q.value = q
+      const lfo = ctx.createOscillator()
+      lfo.frequency.value = lfoRate
+      const lg = ctx.createGain()
+      lg.gain.value = freq * 0.4
+      lfo.connect(lg)
+      lg.connect(bp.frequency)
+      const g = ctx.createGain()
+      g.gain.value = vol
+      n.connect(bp)
+      bp.connect(g)
+      g.connect(out)
+      n.start()
+      lfo.start()
+      this.moodNodes.push(n, lfo)
+    }
+    if (mood === 'house') wind(500, 3, 0.05, 0.07)
+    else if (mood === 'school') {
+      wind(900, 6, 0.04, 0.11)
+      osc(1760, 'sine', 0.004)
+    } else if (mood === 'hospital') {
+      osc(50, 'sawtooth', 0.02)
+      osc(100, 'square', 0.006)
+      wind(3000, 1, 0.01, 0.05)
+    } else if (mood === 'void') {
+      const a = osc(36.7, 'sine', 0.12)
+      const lfo = ctx.createOscillator()
+      lfo.frequency.value = 0.08
+      const lg = ctx.createGain()
+      lg.gain.value = 0.08
+      lfo.connect(lg)
+      lg.connect(a.g.gain)
+      lfo.start()
+      this.moodNodes.push(lfo)
+      osc(73.6, 'triangle', 0.03)
+      wind(250, 2, 0.05, 0.03)
+    }
   }
 
   private scheduleHeart = (): void => {
@@ -233,8 +314,38 @@ class HorrorAudio {
     o.stop(t + dur + 0.05)
   }
 
-  footstep(run: boolean): void {
-    this.burst({ freq: run ? 500 : 380, q: 0.8, dur: 0.09, vol: run ? 0.22 : 0.1, type: 'lowpass' })
+  footstep(run: boolean, mood = 'house'): void {
+    const hard = mood === 'hospital' || mood === 'school'
+    const base = mood === 'void' ? 260 : hard ? 900 : 420
+    this.burst({ freq: run ? base * 1.3 : base, q: hard ? 1.6 : 0.8, dur: hard ? 0.07 : 0.09, vol: (run ? 0.22 : 0.1) * (mood === 'void' ? 0.6 : 1), type: hard ? 'bandpass' : 'lowpass' })
+  }
+
+  /** Một nốt đàn piano (0 = Đô … 6 = Si), hơi lạc điệu cho rợn. */
+  note(i: number): void {
+    const f = [261.6, 293.7, 329.6, 349.2, 392, 440, 493.9][i] ?? 261.6
+    this.tone(f, 1.2, 0.12, 'triangle')
+    this.tone(f * 2.01, 0.8, 0.03, 'sine')
+  }
+
+  /** Tiếng khúc khích trẻ con (bóng học sinh vừa cử động). */
+  giggle(vol = 0.5): void {
+    if (vol < 0.03) return
+    const v = (this.reduce ? 0.5 : 1) * vol * 0.07
+    const base = 700 + Math.random() * 200
+    for (let i = 0; i < 5; i++) this.tone(base + (i % 2) * 120 - i * 25, 0.09, v, 'triangle', i * 0.11, base * 0.9)
+  }
+
+  /** Máy đo nhịp tim bệnh viện: tít… tít… */
+  monitor(on: boolean): void {
+    if (!on) {
+      if (this.monitoring) window.clearInterval(this.monitoring)
+      this.monitoring = null
+      return
+    }
+    if (this.monitoring) return
+    const b = () => this.tone(988, 0.12, 0.05, 'sine')
+    b()
+    this.monitoring = window.setInterval(b, 1100)
   }
 
   /** Bước chân nặng nề của Kẻ Không Mặt, `vol` và `pan` theo vị trí. */

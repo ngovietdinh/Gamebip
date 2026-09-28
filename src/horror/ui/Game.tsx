@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { hAudio } from '../audio'
-import { ITEMS } from '../content'
+import { ALL_FRAGMENTS, getChapter } from '../chapters'
+import { ITEMS } from '../items'
 import { useHorror } from '../store'
-import { HorrorWorld, type HorrorInput, type WorldHud } from '../World'
-import { ExamineView, FrontChoice, Intro, Inventory, Journal, Keypad, MirrorView, NoteView, Pause, PhotoView } from './Panels'
+import { HorrorWorld, type HorrorInput, type ScareKind, type WorldHud } from '../World'
+import { ExamineView, Inventory, Journal, Keypad, MemoryView, MirrorView, NoteView, Pause, PhotoView, Piano } from './Panels'
 
 const KEYS: Record<string, [number, number]> = {
   KeyW: [1, 0],
@@ -23,12 +24,13 @@ export function Game() {
   const worldRef = useRef<HorrorWorld | null>(null)
   const input = useRef<HorrorInput>({ forward: 0, right: 0, sprint: false, lookDX: 0, lookDY: 0 })
   const [hud, setHud] = useState<WorldHud>({ bpm: 70, prompt: null, confront: -1, danger: 0, hiding: false })
-  const [scare, setScare] = useState<null | 'catch' | 'mirror' | 'faint' | 'flash'>(null)
+  const [scare, setScare] = useState<ScareKind | null>(null)
   const [touch] = useState(isTouch)
   const [locked, setLocked] = useState(false)
   const modal = useHorror((s) => s.modal)
   const quality = useHorror((s) => s.settings.quality)
   const reduce = useHorror((s) => s.settings.reduceScares)
+  const chapterId = useHorror((s) => s.chapter)
 
   useEffect(() => {
     if (!canvasRef.current) return
@@ -45,10 +47,11 @@ export function Game() {
           hud: setHud,
           scare: (k) => {
             setScare(k)
-            window.setTimeout(() => setScare(null), k === 'catch' ? 1400 : k === 'faint' ? 1700 : k === 'mirror' ? 850 : 250)
+            window.setTimeout(() => setScare(null), k === 'catch' || k === 'shade' ? 1400 : k === 'faint' ? 1700 : k === 'mirror' ? 850 : 250)
           },
         },
         quality,
+        getChapter(chapterId),
       )
     } catch (e) {
       console.error(e)
@@ -65,7 +68,7 @@ export function Game() {
       worldRef.current = null
       hAudio.setActive(false)
     }
-  }, [quality])
+  }, [quality, chapterId])
 
   // Khi mở bảng: nhả chuột; mất khóa chuột giữa lúc chơi: tạm dừng.
   useEffect(() => {
@@ -187,7 +190,7 @@ export function Game() {
         onPointerCancel={onPointerUp}
         onContextMenu={(e) => e.preventDefault()}
       />
-      <Effects danger={hud.danger} />
+      <Effects danger={hud.danger} post={quality === 'high'} />
       {hud.hiding && <div className="hz-slats" />}
       <Hud hud={hud} touch={touch} />
       {!modal && !touch && !locked && <div className="hz-clickhint">Bấm vào màn hình để điều khiển bằng chuột</div>}
@@ -206,12 +209,12 @@ export function Game() {
         </div>
       )}
       {scare && <Scare kind={scare} reduce={reduce} />}
-      <Modal touch={touch} />
+      <Modal />
     </div>
   )
 }
 
-function Modal({ touch }: { touch: boolean }) {
+function Modal() {
   const modal = useHorror((s) => s.modal)
   if (!modal) return null
   switch (modal.type) {
@@ -224,17 +227,17 @@ function Modal({ touch }: { touch: boolean }) {
     case 'examine':
       return <ExamineView title={modal.title} text={modal.text} />
     case 'mirror':
-      return <MirrorView />
+      return <MirrorView text={modal.text} />
+    case 'piano':
+      return <Piano puzzle={modal.puzzle} />
+    case 'memory':
+      return <MemoryView fragment={modal.fragment} />
     case 'inventory':
       return <Inventory />
     case 'journal':
       return <Journal />
     case 'pause':
       return <Pause />
-    case 'frontChoice':
-      return <FrontChoice />
-    case 'intro':
-      return <Intro touch={touch} />
   }
 }
 
@@ -248,6 +251,7 @@ function Hud({ hud, touch }: { hud: WorldHud; touch: boolean }) {
   const hasLight = useHorror((s) => s.hasFlashlight)
   const inv = useHorror((s) => s.inventory)
   const frags = useHorror((s) => s.fragments.length)
+  const chIndex = useHorror((s) => getChapter(s.chapter).index)
   const msgs = useHorror((s) => s.messages)
   const open = useHorror((s) => s.openModal)
   const use = useHorror((s) => s.useSlot)
@@ -280,7 +284,9 @@ function Hud({ hud, touch }: { hud: WorldHud; touch: boolean }) {
         <div className="hz-bpm" style={{ animationDuration: `${60 / hud.bpm}s` }}>
           ❤ <span>{hud.bpm}</span> bpm
         </div>
-        <div className="hz-frags">Ký ức {frags}/4</div>
+        <div className="hz-frags">
+          Chương {chIndex} · Ký ức {frags}/{ALL_FRAGMENTS.length}
+        </div>
       </div>
       {touch && (
         <div className="hz-topbtns">
@@ -322,21 +328,22 @@ function Hud({ hud, touch }: { hud: WorldHud; touch: boolean }) {
   )
 }
 
-function Effects({ danger }: { danger: number }) {
+function Effects({ danger, post }: { danger: number; post: boolean }) {
   const sanity = useHorror((s) => Math.round(s.sanity))
   const hp = useHorror((s) => s.hp)
   const low = Math.max(0, (60 - sanity) / 60)
   return (
     <>
-      <div className="hz-vignette" style={{ opacity: 0.55 + low * 0.45 }} />
-      <div className="hz-danger" style={{ opacity: danger * 0.55 + (hp === 1 ? 0.15 : 0) }} />
-      <div className="hz-grain" style={{ opacity: 0.08 + low * 0.25 }} />
+      {/* Chất lượng cao: hậu kỳ WebGL đã lo nhiễu hạt, viền tối, quang sai */}
+      {!post && <div className="hz-vignette" style={{ opacity: 0.55 + low * 0.45 }} />}
+      <div className="hz-danger" style={{ opacity: (danger * 0.55 + (hp === 1 ? 0.15 : 0)) * (post ? 0.5 : 1) }} />
+      {!post && <div className="hz-grain" style={{ opacity: 0.08 + low * 0.25 }} />}
       {sanity < 35 && <div className="hz-warp" style={{ opacity: (35 - sanity) / 35 }} />}
     </>
   )
 }
 
-function Scare({ kind, reduce }: { kind: 'catch' | 'mirror' | 'faint' | 'flash'; reduce: boolean }) {
+function Scare({ kind, reduce }: { kind: ScareKind; reduce: boolean }) {
   if (kind === 'faint') return <div className="hz-faint" />
   if (kind === 'flash') return <div className="hz-flash" />
   if (reduce) return <div className="hz-redflash" />

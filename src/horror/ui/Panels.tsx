@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { hAudio } from '../audio'
-import { FRAGMENTS, ITEMS, NOTES, PHOTOS, PUZZLES } from '../content'
-import { ACHIEVEMENTS, readNotes, useHorror } from '../store'
+import { ALL_FRAGMENTS, CHAPTERS, findNote, findPuzzle, fragmentById } from '../chapters'
+import { CH1_PHOTOS } from '../chapters/ch1'
+import { NOTE_COLOR_NAMES, NOTE_COLORS, NOTE_NAMES, SHEET } from '../chapters/ch2'
+import { ITEMS } from '../items'
+import { ACHIEVEMENTS, useHorror } from '../store'
 
 export function Panel({ title, children, onClose, wide }: { title: string; children: React.ReactNode; onClose?: () => void; wide?: boolean }) {
   useEffect(() => {
@@ -35,7 +38,7 @@ export function Panel({ title, children, onClose, wide }: { title: string; child
 const close = () => useHorror.getState().openModal(null)
 
 export function Keypad({ puzzle }: { puzzle: string }) {
-  const p = PUZZLES[puzzle]
+  const p = findPuzzle(puzzle)!
   const submit = useHorror((s) => s.submitCode)
   const [code, setCode] = useState('')
   const [wrong, setWrong] = useState(0)
@@ -96,7 +99,8 @@ export function Keypad({ puzzle }: { puzzle: string }) {
 }
 
 export function NoteView({ note }: { note: string }) {
-  const n = NOTES[note]
+  const n = findNote(note)
+  if (!n) return null
   return (
     <Panel title={n.title} onClose={close}>
       <div className="hz-paper">
@@ -110,7 +114,7 @@ export function NoteView({ note }: { note: string }) {
 }
 
 export function PhotoView({ photo }: { photo: number }) {
-  const p = PHOTOS[photo]
+  const p = CH1_PHOTOS[photo]
   return (
     <Panel title="Ảnh gia đình" onClose={close}>
       <div className="hz-photo">
@@ -140,12 +144,12 @@ export function ExamineView({ title, text }: { title: string; text: string }) {
   )
 }
 
-export function MirrorView() {
+export function MirrorView({ text }: { text: string }) {
   return (
     <Panel title="Tấm gương" onClose={close}>
       <div className="hz-mirror">
         <div className="hz-mirror-glass">
-          <span className="hz-mirror-text">2519</span>
+          <span className="hz-mirror-text">{text}</span>
           <span className="hz-mirror-small">ĐỪNG NHÌN SAU LƯNG</span>
         </div>
       </div>
@@ -195,53 +199,155 @@ export function Inventory() {
 export function Journal() {
   const fragments = useHorror((s) => s.fragments)
   const notes = useHorror((s) => s.notes)
-  const [tab, setTab] = useState<'mem' | 'notes'>('mem')
+  const chapter = useHorror((s) => s.chapter)
+  const [tab, setTab] = useState<'mem' | 'notes' | 'goal'>('goal')
+  const cur = CHAPTERS.find((c) => c.id === chapter)!
   return (
     <Panel title="Nhật ký" onClose={close} wide>
       <div className="hz-tabs">
+        <button className={tab === 'goal' ? 'on' : ''} onClick={() => setTab('goal')}>
+          Mục tiêu
+        </button>
         <button className={tab === 'mem' ? 'on' : ''} onClick={() => setTab('mem')}>
-          Mảnh ký ức {fragments.length}/4
+          Ký ức {fragments.length}/{ALL_FRAGMENTS.length}
         </button>
         <button className={tab === 'notes' ? 'on' : ''} onClick={() => setTab('notes')}>
           Ghi chú {notes.length}
         </button>
       </div>
-      {tab === 'mem' ? (
+      {tab === 'goal' && (
         <div className="hz-list">
-          {FRAGMENTS.map((f) =>
-            fragments.includes(f.id) ? (
-              <div key={f.id} className="hz-frag">
-                <div className="hz-frag-digit">{f.digit}</div>
-                <div>
-                  <strong>Mảnh {f.id}</strong>
-                  <p>{f.text}</p>
-                </div>
-              </div>
-            ) : (
-              <div key={f.id} className="hz-frag locked">
-                <div className="hz-frag-digit">?</div>
-                <div>
-                  <strong>Mảnh {f.id}</strong>
-                  <p>Một khoảng trống trong trí nhớ.</p>
-                </div>
-              </div>
-            ),
-          )}
-          <p className="hz-sub">Các con số ghép theo thứ tự mảnh 1 → 4.</p>
+          <div className="hz-note">
+            <strong>
+              Chương {cur.index}: {cur.title}
+            </strong>
+            <p>{cur.objective}</p>
+          </div>
+          <p className="hz-sub">Gom đủ {ALL_FRAGMENTS.length} mảnh ký ức qua bốn chương để nhớ lại toàn bộ sự thật.</p>
         </div>
-      ) : (
+      )}
+      {tab === 'mem' && (
         <div className="hz-list">
-          {notes.length === 0 && <p className="hz-sub">Chưa đọc được gì.</p>}
-          {readNotes(notes).map((n) => (
-            <div key={n.id} className="hz-note">
-              <strong>{n.title}</strong>
-              {n.body.split('\n').map((l, i) => (
-                <p key={i}>{l}</p>
-              ))}
+          {CHAPTERS.filter((c) => c.fragments.length).map((c) => (
+            <div key={c.id}>
+              <h3 className="hz-chaphead">
+                Chương {c.index} — {c.title}
+              </h3>
+              {c.fragments.map((f) =>
+                fragments.includes(f.id) ? (
+                  <div key={f.id} className="hz-frag">
+                    <div className="hz-frag-digit">{f.digit ?? '✦'}</div>
+                    <div>
+                      <strong>{f.title}</strong>
+                      <p>{f.text}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={f.id} className="hz-frag locked">
+                    <div className="hz-frag-digit">?</div>
+                    <div>
+                      <strong>Mảnh chưa tìm thấy</strong>
+                      <p>Một khoảng trống trong trí nhớ.</p>
+                    </div>
+                  </div>
+                ),
+              )}
+              {c.id === 'ch1' && <p className="hz-sub">Chương 1: các chữ số ghép theo thứ tự mảnh 1 → 4.</p>}
             </div>
           ))}
         </div>
       )}
+      {tab === 'notes' && (
+        <div className="hz-list">
+          {notes.length === 0 && <p className="hz-sub">Chưa đọc được gì.</p>}
+          {notes
+            .map((id) => findNote(id))
+            .filter((n) => !!n)
+            .map((n) => (
+              <div key={n!.id} className="hz-note">
+                <strong>{n!.title}</strong>
+                {n!.body.split('\n').map((l, i) => (
+                  <p key={i}>{l}</p>
+                ))}
+              </div>
+            ))}
+        </div>
+      )}
+    </Panel>
+  )
+}
+
+/** Cây đàn piano: 7 phím dán nhãn màu, đánh đúng giai điệu trên bản nhạc màu. */
+export function Piano({ puzzle }: { puzzle: string }) {
+  const p = findPuzzle(puzzle)!
+  const solved = useHorror((s) => s.solved.includes(puzzle))
+  const submit = useHorror((s) => s.submitCode)
+  const [seq, setSeq] = useState('')
+  const [wrong, setWrong] = useState(0)
+  const play = (i: number) => {
+    hAudio.note(i)
+    if (solved) return
+    const next = seq + String(i + 1)
+    if (next.length < p.code.length) {
+      setSeq(next)
+      return
+    }
+    setSeq('')
+    if (submit(puzzle, next)) hAudio.unlockSound()
+    else {
+      setWrong((w) => w + 1)
+      window.setTimeout(() => hAudio.error(), 250)
+    }
+  }
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if (/^[1-7]$/.test(e.key)) play(Number(e.key) - 1)
+    }
+    window.addEventListener('keydown', k)
+    return () => window.removeEventListener('keydown', k)
+  })
+  return (
+    <Panel title={p.title} onClose={close}>
+      <div className="hz-sheet" aria-label="Bản nhạc trên giá">
+        <span className="lb">Bản nhạc:</span>
+        {SHEET.map((n, i) => (
+          <span key={i} className="hz-sheet-note" style={{ background: NOTE_COLORS[n] }} title={NOTE_COLOR_NAMES[n]} />
+        ))}
+      </div>
+      <div className="hz-piano">
+        {NOTE_NAMES.map((name, i) => (
+          <button key={i} className="hz-pkey" onClick={() => play(i)} aria-label={`${name} (${NOTE_COLOR_NAMES[i]})`}>
+            <span className="tag" style={{ background: NOTE_COLORS[i] }} />
+            <span className="nm">{name}</span>
+          </button>
+        ))}
+      </div>
+      <div className="hz-display small" aria-live="polite">
+        {Array.from({ length: p.code.length }, (_, i) => (
+          <span key={i}>{seq[i] ? '♪' : '·'}</span>
+        ))}
+      </div>
+      {solved && <p className="hz-sub">Nắp đàn đã mở. Phím đàn vẫn còn vang.</p>}
+      {wrong > 0 && !solved && <p className="hz-wrong">Nốt nhạc lạc điệu. Có tiếng cười khúc khích từ hành lang. (−3 tinh thần)</p>}
+      {wrong > 0 && !solved && <p className="hz-hint">Gợi ý: {p.hint}</p>}
+      <p className="hz-sub">Phím tắt: 1–7.</p>
+    </Panel>
+  )
+}
+
+export function MemoryView({ fragment }: { fragment: string }) {
+  const f = fragmentById(fragment)
+  if (!f) return null
+  return (
+    <Panel title="Mảnh ký ức" onClose={close}>
+      <div className="hz-memory">
+        {f.digit && <div className="hz-memory-digit">{f.digit}</div>}
+        <h3>{f.title}</h3>
+        <p>{f.text}</p>
+      </div>
+      <button className="hz-btn primary" onClick={close}>
+        Tiếp tục
+      </button>
     </Panel>
   )
 }
@@ -313,70 +419,6 @@ export function Pause() {
           Về màn hình chính
         </button>
       </div>
-    </Panel>
-  )
-}
-
-export function FrontChoice() {
-  const finish = useHorror((s) => s.finish)
-  const say = useHorror((s) => s.say)
-  return (
-    <Panel title="Cửa chính đã mở">
-      <div className="hz-examine">
-        <p>Ánh sáng ban mai tràn qua khe cửa. Chỉ cần bước ra là tỉnh giấc.</p>
-        <p>Nhưng phía sau lưng, từ phòng ngủ, vọng lại tiếng một đứa trẻ đang khóc trong tủ quần áo.</p>
-      </div>
-      <div className="hz-row">
-        <button className="hz-btn primary" onClick={() => finish('escape')}>
-          Bước ra ngoài
-        </button>
-        <button
-          className="hz-btn"
-          onClick={() => {
-            close()
-            say('Bạn quay lưng lại với cánh cửa. Tủ quần áo trong phòng ngủ…')
-          }}
-        >
-          Quay lại, đối mặt với nó
-        </button>
-      </div>
-    </Panel>
-  )
-}
-
-export function Intro({ touch }: { touch: boolean }) {
-  return (
-    <Panel title="3 giờ 17 phút sáng">
-      <div className="hz-examine">
-        <p>Bạn mở mắt trong căn phòng ngủ hồi bé. Mọi thứ y như cũ — chỉ là tối hơn, lạnh hơn, và cửa đã bị khóa từ bên ngoài.</p>
-        <p>Có thứ gì đó đang đi lại trong nhà. Nó không có mặt. Nó nghe được tiếng chân chạy.</p>
-        <p>
-          <b>Mục tiêu:</b> tìm đèn pin, giải mật mã để mở từng căn phòng, gom 4 mảnh ký ức và thoát ra bằng cửa chính.
-        </p>
-      </div>
-      <div className="hz-controls">
-        {touch ? (
-          <>
-            <p>Joystick trái: đi · Vuốt nửa phải: nhìn · Nút 🔦 đèn pin · ✋ tương tác/trốn · 🏃 chạy</p>
-            <p>🎒 túi đồ · 📓 nhật ký</p>
-          </>
-        ) : (
-          <>
-            <p>
-              <b>WASD</b> đi · <b>Chuột</b> nhìn · <b>Shift</b> chạy · <b>F</b> đèn pin · <b>E</b> tương tác / trốn
-            </p>
-            <p>
-              <b>Tab</b> túi đồ · <b>J</b> nhật ký · <b>1–4</b> dùng nhanh · <b>Esc</b> tạm dừng
-            </p>
-          </>
-        )}
-        <p className="hz-sub">
-          Đèn pin hết pin dần. Ở trong bóng tối lâu hoặc nhìn thấy nó sẽ làm tụt tinh thần. Đứng gần đèn trong nhà để bình tĩnh lại.
-        </p>
-      </div>
-      <button className="hz-btn primary big" onClick={close}>
-        Bắt đầu
-      </button>
     </Panel>
   )
 }

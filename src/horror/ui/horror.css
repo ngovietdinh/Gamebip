@@ -1134,3 +1134,166 @@ button {
     animation: none;
   }
 }
+
+/* ------------------------------------------------------------ đàn piano, ký ức, thẻ chương */
+.hz-display.small {
+  font-size: 22px;
+  min-width: 0;
+  margin: 10px auto 0;
+  width: fit-content;
+}
+.hz-sheet {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  background: #e8e0cc;
+  border-radius: 3px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.hz-sheet .lb {
+  color: #3a2e22;
+  font-family: var(--hz-type);
+  margin-right: 4px;
+}
+.hz-sheet-note {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid #2a2016;
+}
+.hz-piano {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  background: #1a1210;
+  padding: 8px;
+  border-radius: 4px;
+}
+.hz-pkey {
+  min-width: 0;
+  height: 132px;
+  background: linear-gradient(#f4efe4, #d6cfc0);
+  border: 1px solid #6a5a48;
+  border-radius: 0 0 5px 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 6px 0;
+  color: #2a2016;
+  cursor: pointer;
+}
+.hz-pkey:active {
+  background: linear-gradient(#d8d0c0, #b8b0a0);
+  transform: translateY(2px);
+}
+.hz-pkey .tag {
+  width: 70%;
+  max-width: 26px;
+  height: 14px;
+  border-radius: 2px;
+}
+.hz-pkey .nm {
+  font-size: 11px;
+}
+.hz-memory {
+  text-align: center;
+  padding: 8px 4px 14px;
+}
+.hz-memory h3 {
+  font-family: var(--hz-type);
+  color: var(--hz-bone);
+  margin: 8px 0;
+}
+.hz-memory p {
+  font-family: var(--hz-story);
+  line-height: 1.7;
+  color: #d6cfc4;
+}
+.hz-memory-digit {
+  font-family: var(--hz-type);
+  font-size: 54px;
+  color: var(--hz-bone);
+  text-shadow: 0 0 18px rgba(255, 220, 180, 0.5);
+}
+.hz-chaphead {
+  font-family: var(--hz-type);
+  color: var(--hz-muted);
+  font-size: 14px;
+  margin: 14px 0 6px;
+  letter-spacing: 0.05em;
+}
+.hz-chapter {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 40%, #14100e, #030303 70%);
+  padding: 24px 16px calc(24px + var(--safe-b));
+  overflow: auto;
+  z-index: 30;
+}
+.hz-chapter-card {
+  max-width: 620px;
+  width: 100%;
+  min-width: 0;
+  animation: hzFadeIn 1.4s ease both;
+}
+.hz-chapter-card .no {
+  font-family: var(--hz-type);
+  color: var(--hz-red);
+  letter-spacing: 0.3em;
+  font-size: 13px;
+}
+.hz-chapter-card h1 {
+  font-family: var(--hz-type);
+  font-size: clamp(32px, 8vw, 54px);
+  margin: 6px 0 2px;
+  color: var(--hz-bone);
+}
+.hz-chapter-card .sub {
+  color: var(--hz-muted);
+  font-style: italic;
+  margin-bottom: 18px;
+}
+.hz-chapter-card .story p {
+  font-family: var(--hz-story);
+  line-height: 1.75;
+  color: #d6cfc4;
+}
+.hz-chapter-card .outro {
+  border-left: 2px solid #4a1a1a;
+  padding-left: 12px;
+  margin-bottom: 22px;
+  opacity: 0.85;
+}
+.hz-chapter-card .goal {
+  margin: 16px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--hz-line);
+  background: rgba(255, 255, 255, 0.03);
+}
+@keyframes hzFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.hz-chapters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+.hz-scare.shade .hz-face {
+  filter: grayscale(1) brightness(0.8);
+  transform: scale(0.8);
+}
