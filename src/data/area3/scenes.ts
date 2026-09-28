@@ -1,0 +1,260 @@
+import type { Condition, Effect, Scene } from '../../engine/types'
+import { clue, flag, goto, hasFlag, HURRY, noFlag, say, when } from '../common/helpers'
+
+/** Ánh sáng từ phía đông (sáng: mặt trời, tối: trăng) -> bóng đổ về tây (bên trái). */
+const LIGHT_FROM_EAST: Condition = { t: 'tod', in: ['sang', 'toi'] }
+
+const wrongPath: Effect[] = [
+  when(
+    hasFlag('a3_path_wrong'),
+    [{ t: 'sanity', n: -2 }],
+    [
+      flag('a3_path_wrong'),
+      {
+        t: 'mistake',
+        fallacy: 'timeContext',
+        explain:
+          'Hai lối trông giống hệt nhau, nhưng bóng trúc trên lối này lại đổ về phía nguồn sáng — điều không thể có ở cảnh thật. Bạn quên rằng hướng mặt trời thay đổi theo buổi, nên lối đúng lúc sáng có thể là lối sai lúc chiều.',
+        missed: 'Thầy đồ: "Bóng bao giờ cũng quay lưng về phía mặt trời." Sáng mặt trời ở đông, chiều ở tây, đêm trăng mọc đằng đông.',
+        sanity: 4,
+      },
+    ],
+  ),
+  clue('a3_ao_anh'),
+  say('Con đường trúc cứ vòng mãi, vòng mãi. Bóng trúc chập chờn ngược chiều ánh sáng… rồi bạn thấy mình lại đứng ở bìa rừng.'),
+  goto('bia_rung'),
+]
+
+const rightPath: Effect[] = [
+  when(noFlag('a3_path_wrong'), [{ t: 'once', key: 'a3_path_bonus', then: [{ t: 'sanity', n: 5 }] }]),
+  say('Bóng trúc đổ ngược phía nguồn sáng, đúng như lẽ tự nhiên. Bạn bước theo lối ấy. Tiếng trúc kẽo kẹt xa dần.'),
+  goto('tang_da'),
+]
+
+export const scenes: Scene[] = [
+  {
+    id: 'bia_rung',
+    area: 'a3',
+    name: 'Bìa rừng trúc',
+    art: 'forestEdge',
+    onEnter: [{ t: 'once', key: 'a3_edge', then: [{ t: 'dialogue', id: 'a3_stranger_edge' }] }],
+    hotspots: [
+      {
+        id: 'nguoi_la',
+        label: 'Người lạ đội nón',
+        kind: 'character',
+        character: 'nguoi_la',
+        x: 46,
+        y: 32,
+        w: 11,
+        h: 38,
+        onClick: [...HURRY, say('Đi thẳng vào rừng là ra. Đừng ghé cái lều ông đồ gàn ấy, mất thời gian lắm.', 'nguoi_la')],
+      },
+      {
+        id: 'leu',
+        label: 'Lều thầy đồ',
+        kind: 'exit',
+        sprite: 'hut',
+        x: 4,
+        y: 32,
+        w: 26,
+        h: 36,
+        onClick: [goto('leu_thay_do')],
+      },
+      {
+        id: 'vao_rung',
+        label: 'Vào rừng trúc',
+        kind: 'exit',
+        sprite: 'exitUp',
+        x: 68,
+        y: 34,
+        w: 16,
+        h: 20,
+        onClick: [goto('loi_truc_doi')],
+      },
+    ],
+  },
+  {
+    id: 'leu_thay_do',
+    area: 'a3',
+    name: 'Lều thầy đồ',
+    art: 'scholarHut',
+    hotspots: [
+      {
+        id: 'thay_do',
+        label: 'Ông thầy đồ',
+        kind: 'character',
+        character: 'thay_do',
+        x: 42,
+        y: 34,
+        w: 14,
+        h: 38,
+        onClick: [{ t: 'dialogue', id: 'a3_thay_do' }],
+      },
+      {
+        id: 'cau_doi',
+        label: 'Câu đối trên vách',
+        kind: 'object',
+        sprite: 'scroll',
+        x: 14,
+        y: 20,
+        w: 10,
+        h: 40,
+        onClick: [
+          say('Câu đối viết chữ Nôm, bên dưới có dòng quốc ngữ nhỏ: "Chữ tròn như cửa, mở ra lối về. Bóng quay lưng lại, nắng ở phía kia."'),
+        ],
+      },
+      {
+        id: 'ra_bia',
+        label: 'Ra bìa rừng',
+        kind: 'exit',
+        sprite: 'exitRight',
+        x: 84,
+        y: 50,
+        w: 14,
+        h: 18,
+        onClick: [goto('bia_rung')],
+      },
+    ],
+  },
+  {
+    id: 'loi_truc_doi',
+    area: 'a3',
+    name: 'Lối trúc đôi',
+    art: 'twinPath',
+    decor: [
+      { sprite: 'sun', x: 80, y: 8, w: 12, h: 16, if: { t: 'tod', in: ['sang'] } },
+      { sprite: 'sun', x: 8, y: 8, w: 12, h: 16, if: { t: 'tod', in: ['chieu'] }, props: { evening: true } },
+      { sprite: 'moon', x: 80, y: 8, w: 10, h: 14, if: { t: 'tod', in: ['toi'] } },
+      { sprite: 'compass', x: 2, y: 82, w: 30, h: 8 },
+    ],
+    onEnter: [
+      {
+        t: 'once',
+        key: 'a3_twin',
+        then: [say('Rừng trúc tách làm hai lối, giống hệt nhau như hai giọt nước. Bóng những cây trúc in dài trên mặt đất.')],
+      },
+    ],
+    hotspots: [
+      {
+        id: 'loi_trai',
+        label: 'Lối bên trái',
+        kind: 'exit',
+        sprite: 'bambooPath',
+        x: 4,
+        y: 24,
+        w: 42,
+        h: 50,
+        onClick: [when(LIGHT_FROM_EAST, rightPath, wrongPath)],
+      },
+      {
+        id: 'loi_phai',
+        label: 'Lối bên phải',
+        kind: 'exit',
+        sprite: 'bambooPath',
+        flip: true,
+        x: 54,
+        y: 24,
+        w: 42,
+        h: 50,
+        onClick: [when(LIGHT_FROM_EAST, wrongPath, rightPath)],
+      },
+      {
+        id: 'nhin_troi',
+        label: 'Ngước nhìn trời',
+        kind: 'object',
+        sprite: 'eye',
+        x: 44,
+        y: 12,
+        w: 12,
+        h: 12,
+        onClick: [
+          when(
+            { t: 'tod', in: ['sang'] },
+            [say('Buổi sáng. Mặt trời treo lơ lửng ở phía đông — bên phải bạn.')],
+            [
+              when(
+                { t: 'tod', in: ['chieu'] },
+                [say('Buổi chiều. Mặt trời đã ngả về phía tây — bên trái bạn.')],
+                [say('Trời tối. Vầng trăng mọc từ phía đông — bên phải bạn — rọi ánh bạc qua kẽ lá.')],
+              ),
+            ],
+          ),
+        ],
+      },
+      {
+        id: 've_bia',
+        label: 'Về bìa rừng',
+        kind: 'exit',
+        sprite: 'exitDown',
+        x: 42,
+        y: 78,
+        w: 16,
+        h: 10,
+        onClick: [goto('bia_rung')],
+      },
+    ],
+  },
+  {
+    id: 'tang_da',
+    area: 'a3',
+    name: 'Tảng đá lớn',
+    art: 'bigRock',
+    hotspots: [
+      {
+        id: 'tang_da',
+        label: 'Tảng đá lớn',
+        kind: 'object',
+        sprite: 'rock',
+        x: 28,
+        y: 28,
+        w: 44,
+        h: 44,
+        onClick: [
+          when(
+            { t: 'solved', id: 'a3_c' },
+            [say('Tảng đá khổng lồ phủ rêu xanh. Cá đuối — cuối đá. Phía sau tảng đá hình như có một khe hở.')],
+            [say('Một tảng đá khổng lồ phủ rêu, chắn ngang đường. Chẳng có lối nào cả. Có lẽ thầy đồ biết điều gì đó.')],
+          ),
+        ],
+      },
+      {
+        id: 'cuoi_da',
+        label: 'Vòng ra cuối tảng đá',
+        kind: 'exit',
+        sprite: 'exitRight',
+        x: 74,
+        y: 46,
+        w: 18,
+        h: 18,
+        if: { t: 'solved', id: 'a3_c' },
+        onClick: [
+          { t: 'sound', id: 'glitch' },
+          { t: 'overlay', id: 'fakeGameOver' },
+        ],
+      },
+      {
+        id: 'nguoi_la',
+        label: 'Người lạ đội nón',
+        kind: 'character',
+        character: 'nguoi_la',
+        x: 8,
+        y: 34,
+        w: 11,
+        h: 38,
+        onClick: [...HURRY, say('Hết đường rồi. Quay lại, đi theo tôi. Không còn nhiều thời gian đâu.', 'nguoi_la')],
+      },
+      {
+        id: 've_loi',
+        label: 'Quay lại lối trúc',
+        kind: 'exit',
+        sprite: 'exitDown',
+        x: 42,
+        y: 78,
+        w: 16,
+        h: 10,
+        onClick: [goto('loi_truc_doi')],
+      },
+    ],
+  },
+]

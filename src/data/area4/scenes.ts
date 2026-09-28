@@ -1,0 +1,212 @@
+import type { Effect, Scene } from '../../engine/types'
+import { clue, flag, goto, hasFlag, say, when } from '../common/helpers'
+
+/** Đi theo Người lạ vì bị giục: lạc về Quán lá. */
+export const FOLLOW_STRANGER: Effect[] = [
+  when(
+    hasFlag('a4_followed_stranger'),
+    [{ t: 'sanity', n: -2 }],
+    [
+      flag('a4_followed_stranger'),
+      {
+        t: 'mistake',
+        fallacy: 'pressure',
+        explain:
+          'Bạn đi theo hắn chỉ vì hắn bảo "còn ít thời gian lắm". Áp lực thời gian khiến bạn bỏ qua bước kiểm tra: hắn đã chỉ đúng được lần nào chưa?',
+        missed: 'Hắn chỉ sai cổng tre, đoán sai trống 16 tiếng. Còn ông lái đò thì dặn: đi ngược dòng.',
+        sanity: 5,
+      },
+    ],
+  ),
+  say('Bạn theo vành nón rộng đi mãi, đi mãi trong sương… rồi thấy mình đứng trước một quán lá. Người lạ đã biến mất.'),
+  goto('quan_la'),
+]
+
+const FOLLOW_MAP: Effect[] = [
+  flag('a4_followed_map'),
+  when(
+    hasFlag('a4_map_mistake'),
+    [{ t: 'sanity', n: -2 }],
+    [
+      flag('a4_map_mistake'),
+      {
+        t: 'mistake',
+        fallacy: 'tool',
+        explain:
+          'Bạn tin tấm bản đồ hơn cả lời người lái đò và dòng nước trước mặt. Công cụ cũng có thể sai — nhất là tấm bản đồ đã tự lệch đi mỗi buổi.',
+        missed: 'Ông lái đò: "Đi ngược dòng nước." Và bản đồ đã khác so với lúc mới nhận.',
+        sanity: 5,
+      },
+    ],
+  ),
+  clue('a4_lac_ban_do'),
+  when(hasFlag('a2_map_hint'), [clue('ev_ban_do')]),
+  say('Bạn đi xuôi dòng theo đúng hình vẽ trên bản đồ. Chỗ ấy đáng lẽ là bến đò… nhưng chỉ có một quán lá lụp xụp.'),
+  goto('quan_la'),
+]
+
+export const scenes: Scene[] = [
+  {
+    id: 'bo_song',
+    area: 'a4',
+    name: 'Bờ sông',
+    art: 'riverbank',
+    onEnter: [
+      {
+        t: 'once',
+        key: 'a4_arrive',
+        then: [
+          say('Một dòng sông rộng chắn ngang trước mặt. Nước chảy từ phải sang trái, cuốn theo những chiếc lá trúc.'),
+          say('Ai muốn sang sông thì đi ngược dòng nước, nghe tiếng mái chèo mà tìm…', 'lai_do'),
+          say('Tiếng hát vọng lại từ phía thượng nguồn — phía ngược dòng, bên phải bạn.'),
+          clue('a4_loi_lai_do'),
+          { t: 'dialogue', id: 'a4_stranger_arrive' },
+        ],
+      },
+    ],
+    hotspots: [
+      {
+        id: 'nguoi_la',
+        label: 'Người lạ đội nón',
+        kind: 'character',
+        character: 'nguoi_la',
+        x: 40,
+        y: 30,
+        w: 11,
+        h: 38,
+        onClick: [{ t: 'dialogue', id: 'a4_stranger' }],
+      },
+      {
+        id: 'xuoi_dong',
+        label: 'Xuôi dòng (hướng bản đồ chỉ)',
+        kind: 'exit',
+        sprite: 'exitLeft',
+        x: 3,
+        y: 56,
+        w: 20,
+        h: 16,
+        onClick: FOLLOW_MAP,
+      },
+      {
+        id: 'nguoc_dong',
+        label: 'Ngược dòng',
+        kind: 'exit',
+        sprite: 'exitRight',
+        x: 77,
+        y: 56,
+        w: 20,
+        h: 16,
+        onClick: [
+          when({ t: 'not', c: hasFlag('a4_followed_map') }, [{ t: 'once', key: 'a4_upstream_bonus', then: [{ t: 'sanity', n: 5 }] }]),
+          say('Bạn đi ngược dòng nước. Tiếng mái chèo khua nước mỗi lúc một gần.'),
+          goto('ben_do'),
+        ],
+      },
+      {
+        id: 'quan_la',
+        label: 'Quán lá',
+        kind: 'exit',
+        sprite: 'leafHut',
+        x: 12,
+        y: 26,
+        w: 22,
+        h: 28,
+        onClick: [goto('quan_la')],
+      },
+    ],
+  },
+  {
+    id: 'quan_la',
+    area: 'a4',
+    name: 'Quán lá',
+    art: 'leafHouse',
+    hotspots: [
+      {
+        id: 'co_hang',
+        label: 'Cô hàng quán',
+        kind: 'character',
+        character: 'co_hang',
+        x: 44,
+        y: 34,
+        w: 13,
+        h: 38,
+        onClick: [{ t: 'dialogue', id: 'a4_co_hang' }],
+      },
+      {
+        id: 'am_nuoc',
+        label: 'Ấm nước vối',
+        kind: 'object',
+        sprite: 'teaPot',
+        x: 66,
+        y: 54,
+        w: 12,
+        h: 14,
+        onClick: [say('Ấm nước vối còn ấm. Cạnh ấm có ba cái bát, một cái chưa ai dùng tới — chỗ dành cho Người lạ, cô hàng bảo hắn chẳng bao giờ uống.')],
+      },
+      {
+        id: 'ra_bo',
+        label: 'Ra bờ sông',
+        kind: 'exit',
+        sprite: 'exitDown',
+        x: 42,
+        y: 78,
+        w: 16,
+        h: 10,
+        onClick: [goto('bo_song')],
+      },
+    ],
+  },
+  {
+    id: 'ben_do',
+    area: 'a4',
+    name: 'Bến đò',
+    art: 'ferry',
+    onEnter: [{ t: 'once', key: 'a4_dock', then: [say('Một bến đò nhỏ bằng tre. Con đò mộc neo dưới gốc gạo. Ông lái đò ngồi vấn thuốc, mắt nhìn ra sông.')] }],
+    hotspots: [
+      {
+        id: 'lai_do',
+        label: 'Ông lái đò',
+        kind: 'character',
+        character: 'lai_do',
+        x: 58,
+        y: 30,
+        w: 13,
+        h: 40,
+        onClick: [{ t: 'dialogue', id: 'a4_lai_do' }],
+      },
+      {
+        id: 'nguoi_la',
+        label: 'Người lạ đội nón',
+        kind: 'character',
+        character: 'nguoi_la',
+        x: 20,
+        y: 32,
+        w: 11,
+        h: 38,
+        onClick: [{ t: 'dialogue', id: 'a4_stranger_dock' }],
+      },
+      {
+        id: 'con_do',
+        label: 'Con đò',
+        kind: 'object',
+        sprite: 'boat',
+        x: 70,
+        y: 62,
+        w: 28,
+        h: 14,
+        onClick: [say('Con đò gỗ mộc, mái chèo gác ngang. Không có ông lái đò thì chẳng ai chèo nổi qua dòng nước xiết này.')],
+      },
+      {
+        id: 've_bo',
+        label: 'Về bờ sông',
+        kind: 'exit',
+        sprite: 'exitDown',
+        x: 42,
+        y: 80,
+        w: 16,
+        h: 10,
+        onClick: [goto('bo_song')],
+      },
+    ],
+  },
+]

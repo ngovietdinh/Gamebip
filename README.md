@@ -1,0 +1,274 @@
+# Làng Sương Mù
+
+Game phiêu lưu giải đố point-and-click kiểu visual novel, viết bằng **React + Vite + TypeScript**, quản lý state bằng **Zustand**. Không dùng game engine hay asset ngoài: toàn bộ cảnh và nhân vật vẽ bằng SVG, sương mù chạy trên canvas, âm thanh tổng hợp bằng Web Audio API.
+
+> Bạn là một lữ khách tỉnh dậy giữa chợ phiên của một ngôi làng vùng núi phía Bắc. Một Người lạ đội nón nói: *"Sương sẽ tan sau 3 ngày. Ai còn kẹt trong làng lúc đó sẽ ở lại mãi mãi."* Bạn phải đi qua 4 khu vực để tìm đường ra. Mỗi khu dạy một kỹ năng tư duy: **quan sát, logic, ngôn ngữ, nghi ngờ nguồn tin**.
+
+## Chạy game
+
+```bash
+npm install
+npm run dev        # mở http://localhost:5173
+```
+
+```bash
+npm run build      # kiểm tra kiểu + build tĩnh vào dist/ (dùng đường dẫn tương đối, đặt ở thư mục con nào cũng chạy)
+npm run preview    # xem thử bản build
+npm test           # chạy toàn bộ unit test (Vitest)
+```
+
+Game hỗ trợ màn hình dọc trên điện thoại (từ 375px) và desktop. Chuột, chạm và bàn phím đều dùng được: `Space`/`Enter` để đọc tiếp, phím số `1–9` để chọn câu trả lời, `Esc` để đóng bảng.
+
+### Chế độ debug
+
+Thêm `?debug=1` vào URL (ví dụ `http://localhost:5173/?debug=1`). Nút **DBG** mở bảng gỡ lỗi với các chức năng:
+
+- nhảy tới bất kỳ cảnh nào, đặt thời gian (Ngày 1 Sáng → Ngày 4), chỉnh điểm Tỉnh táo;
+- xem toàn bộ flag, túi đồ, manh mối và các câu đố đã giải;
+- xem phía nào vừa đổi trên đường làng, nhận mọi vật phẩm hoặc bằng chứng, mở phán xử cuối, mở màn Game Over giả, tăng số lần chơi.
+
+Ở chế độ debug, store cũng được gắn vào `window.__game` để thao tác từ console.
+
+## Cấu trúc thư mục
+
+```
+src/
+  engine/            Engine: không chứa nội dung game
+    types.ts         Kiểu dữ liệu: Scene, Hotspot, Dialogue, Puzzle, Verdict, Effect, Condition…
+    store.ts         Store Zustand: chạy hiệu ứng, hội thoại, thời gian, câu đố, phán xử, kết thúc
+    conditions.ts    Đánh giá điều kiện (flag / thời gian / vật phẩm / manh mối / lần chơi…)
+    time.ts          Hệ thống thời gian: 4 hành động = 1 buổi, Ngày 1 Sáng → Ngày 3 Tối → "Ngày 4"
+    puzzle.ts        Kiểm tra đáp án và chuỗi câu đố
+    normalize.ts     Chuẩn hóa đáp án (bỏ dấu, chữ thường, bỏ dấu câu)
+    logic.ts         Bộ giải "đúng một người nói dối"
+    maze.ts          Cơ chế "đường làng bị ma dắt" (tìm chi tiết thay đổi)
+    endings.ts       Điều kiện các kết thúc
+    save.ts          Lưu/tải 3 ô + ô tự động lưu (localStorage)
+    meta.ts          Cài đặt, thành tựu, các kết thúc đã mở (lưu ngoài lượt chơi)
+    registry.ts      Gom dữ liệu các khu vực thành bảng tra cứu
+  data/              Nội dung game
+    common/          Nhân vật chung, lỗi tư duy, thành tựu, kết thúc, hàm tiện ích
+    area1/ … area4/  Mỗi khu vực: scenes.ts, characters.ts, dialogues.ts, puzzles.ts, clues.ts, index.ts
+    index.ts         Danh sách khu vực + các sự kiện toàn cục (hạn chót, New Game+, lớp phủ)
+  ui/                Component giao diện (màn tiêu đề, sân khấu, HUD, hộp thoại, sổ tay, túi đồ, câu đố…)
+  art/               SVG: nền cảnh, nhân vật, đồ vật, bản đồ làng, sương mù canvas
+  audio/             Âm thanh tổng hợp (gió, chuông, trống đình, tiếng click…)
+  tests/             Unit test
+public/assets/       Chỗ để ảnh vẽ tay thay thế SVG sau này (xem public/assets/README.md)
+```
+
+## Hệ thống engine
+
+| Hệ thống | Mô tả |
+| --- | --- |
+| Cảnh | Mỗi cảnh có nền (`art`), hotspot (tọa độ tính theo %), đồ trang trí, hiệu ứng khi vào cảnh. Hotspot và trang trí có thể ẩn/hiện theo điều kiện. |
+| Hội thoại | Cây hội thoại gồm các nút có người nói, câu thoại (có biến thể theo điều kiện), hiệu ứng và lựa chọn. Chữ chạy từng ký tự, bấm để hiện hết. |
+| Hiệu ứng | Ngôn ngữ hành động chung cho toàn game: `goto`, `dialogue`, `clue`, `flag`, `item`, `sanity`, `time`, `puzzle`, `verdict`, `mistake`, `say`, `if`, `once`… |
+| Thời gian | Mỗi lần chuyển cảnh hoặc nói chuyện hết một nhánh là 1 hành động; 4 hành động là 1 buổi. Nền cảnh đổi màu theo buổi (sáng vàng nhạt, chiều cam, tối xanh tím). Sương dày dần. |
+| Sổ tay | Tự ghi lời khai (ai nói, lúc nào, lần chơi thứ mấy) và quan sát, chia tab theo khu vực. Đánh dấu "nghi ngờ" được từng dòng. Tab **Bài học** lưu các lỗi tư duy đã mắc. |
+| Túi đồ | Xem chi tiết vật phẩm, bấm **Dùng lên…** rồi chạm vào hotspot để dùng. |
+| Câu đố | Nhập đáp án (không phân biệt dấu và chữ hoa, chấp nhận nhiều đáp án) hoặc chọn phương án. Có gợi ý (tốn điểm hoặc miễn phí sau vài lần sai). |
+| Phán xử | Chọn đáp án dựa trên sổ tay. Sai thì hiện thẻ **"Bạn đã giả định gì?"**, trừ Tỉnh táo và cho làm lại (không reset khu vực). |
+| Tỉnh táo | 0–100, bắt đầu 50. Tăng khi giải đúng ngay lần đầu, giảm khi bị lừa. Ảnh hưởng tới kết thúc. |
+| Lưu/tải | 3 ô lưu + tự động lưu mỗi lần chuyển cảnh. |
+
+## Thêm nội dung (không cần sửa engine)
+
+### Thêm cảnh
+
+Thêm một phần tử vào `scenes.ts` của khu vực:
+
+```ts
+{
+  id: 'gieng_lang',
+  area: 'a1',
+  name: 'Giếng làng',
+  art: 'market',                 // khóa nền SVG trong src/art/backgrounds.tsx
+  // image: 'assets/backgrounds/gieng.jpg',  // hoặc dùng ảnh vẽ tay
+  onEnter: [{ t: 'once', key: 'gieng_intro', then: [say('Nước giếng trong vắt.')] }],
+  hotspots: [
+    { id: 'ba_lao', label: 'Bà lão', kind: 'character', character: 'ba_lao',
+      x: 40, y: 30, w: 14, h: 42, onClick: [{ t: 'dialogue', id: 'a1_ba_lao' }] },
+    { id: 'gau_nuoc', label: 'Gàu nước', kind: 'object', sprite: 'teaPot',
+      x: 60, y: 50, w: 12, h: 14,
+      if: { t: 'tod', in: ['sang'] },                 // chỉ hiện buổi sáng
+      onClick: [say('Gàu nước lạnh buốt.'), { t: 'clue', id: 'a1_gieng' }] },
+    { id: 've_cho', label: 'Về chợ', kind: 'exit', sprite: 'exitDown',
+      x: 42, y: 78, w: 16, h: 10, onClick: [goto('cho_giua')] },
+  ],
+}
+```
+
+Rồi thêm một lối đi tới cảnh mới từ cảnh cũ (`onClick: [goto('gieng_lang')]`). Test `data.test.ts` sẽ báo lỗi nếu cảnh không đi tới được hoặc tham chiếu sai.
+
+### Thêm nhân vật
+
+Thêm vào `characters.ts`: `{ id, name, sprite, color, suspect? }`. `sprite` là khóa trong `src/art/characters.tsx` (có thể dùng lại sprite có sẵn), hoặc khai báo `image` để dùng ảnh. `suspect: true` chỉ để ghi chú; danh sách nghi phạm ở phán xử cuối nằm trong `area4/puzzles.ts`.
+
+### Thêm hội thoại
+
+```ts
+{
+  id: 'a1_ong_lai',
+  start: [{ if: noFlag('met_lai'), node: 'chao' }, { node: 'hoi' }],   // nhánh cuối không có điều kiện
+  nodes: {
+    chao: { speaker: 'lai_do', text: 'Chào khách.', effects: [flag('met_lai')], next: 'hoi' },
+    hoi: {
+      speaker: 'lai_do',
+      text: 'Khách hỏi gì?',
+      variants: [{ if: { t: 'tod', in: ['toi'] }, text: 'Tối rồi, hỏi nhanh.' }],
+      choices: [
+        { text: 'Đường ra ở đâu?', effects: [clue('a1_duong_ra')], next: 'hoi' },
+        { text: 'Đố tôi đi.', effects: [{ t: 'puzzle', id: 'a1_do_moi' }] },   // không có next: kết thúc hội thoại
+        { text: 'Tạm biệt.' },
+      ],
+    },
+  },
+}
+```
+
+Kết thúc một nhánh hội thoại tính là 1 hành động, trừ khi đặt `free: true`.
+
+### Thêm câu đố
+
+```ts
+{
+  id: 'a1_do_moi', area: 'a1', speaker: 'lai_do', title: 'Câu đố',
+  prompt: 'Cái gì đi thì nằm, đứng cũng nằm, mà nằm cũng nằm?',
+  kind: 'text',
+  answers: ['bàn chân', 'cái bàn chân'],     // tự bỏ dấu, chữ thường khi so sánh
+  hint: { text: 'Nó ở dưới cùng cơ thể.', cost: 5 },
+  firstTryBonus: 3,
+  onSolve: [say('Giỏi!', 'lai_do')],
+  onWrong: [{ t: 'mistake', fallacy: 'intuition', explain: '…', missed: '…', sanity: 3 }],
+}
+```
+
+Muốn đố nhiều câu liên tiếp thì dùng `puzzleSeqs` (có thể đặt thứ tự khác cho lần chơi sau qua `alt`). Câu hỏi chọn phương án thì dùng `kind: 'choice'`, `options` và `correctOption`.
+
+### Thêm manh mối
+
+Thêm vào `clues.ts`: `{ id, area, kind: 'testimony' | 'observation', source?, text, evidence? }`. Đặt `evidence: true` nếu manh mối là bằng chứng hợp lệ ở phán xử cuối.
+
+### Thêm khu vực
+
+1. Tạo thư mục `src/data/area5/` với `scenes.ts`, `characters.ts`, `dialogues.ts`, `puzzles.ts`, `clues.ts` và `index.ts` xuất một `AreaDef` (`order: 5`).
+2. Thêm vào mảng `areas` trong `src/data/index.ts`.
+3. Nối một lối đi từ khu cũ sang cảnh đầu của khu mới.
+
+Tab sổ tay, bảng debug và test toàn vẹn dữ liệu tự nhận khu vực mới.
+
+## Unit test
+
+`npm test` chạy:
+
+- `elders.test.ts`: duyệt cả 16 trường hợp (4 người nói dối × 4 người giữ chìa), chứng minh câu đố bô lão có **nghiệm duy nhất**;
+- `normalize.test.ts`: chuẩn hóa đáp án (NFC/NFD, dấu, hoa thường, dấu câu) và đáp án từng câu đố;
+- `time.test.ts`: hệ thống thời gian, chuyển buổi, hạn chót "Ngày 4";
+- `endings.test.ts`: điều kiện 4 kết thúc;
+- `data.test.ts`: toàn vẹn dữ liệu (mọi cảnh đi tới được, không tham chiếu hỏng, không kẹt hội thoại);
+- `playthrough.test.ts`: mô phỏng người chơi đi hết 4 khu và tới từng kết thúc, gồm cả lần chơi thứ 2 (New Game+).
+
+---
+
+## ⚠️ SPOILER: Sơ đồ lối chơi và đáp án
+
+<details>
+<summary>Bấm để xem toàn bộ lời giải</summary>
+
+### Sự thật
+
+Người lạ đội nón chính là **hồn làng**. Hắn giữ chân lữ khách bằng cách chỉ đường sai và dùng áp lực thời gian để bạn vội vàng. Đồng hồ 3 ngày là **giả**: hết giờ cũng không có gì xảy ra. Sương chỉ tan khi bạn vạch trần hắn.
+
+### Sơ đồ
+
+```
+KHU 1: CHỢ PHIÊN (Quan sát)
+  Giữa chợ ─┬─ Hàng nước chè (Bà lão)
+            ├─ Bãi trâu (Cậu bé chăn trâu, 3 câu đố)
+            └─ Đường làng (vòng lặp ×3) ──► Ngã ba lối ra ──[DỐC ĐÁ]──►
+KHU 2: ĐÌNH LÀNG (Logic)
+  Sân đình (trống 3 tiếng, Ông từ) ─ Gian giữa (4 bô lão) ─[chìa khóa]─ Hậu cung (bản đồ) ──►
+KHU 3: RỪNG TRÚC (Ngôn ngữ)
+  Bìa rừng ─┬─ Lều thầy đồ (3 câu đố)
+            └─ Lối trúc đôi ─[đúng bóng]─ Tảng đá lớn ─[cuối đá]─ GAME OVER giả ─[chữ O]──►
+KHU 4: BẾN ĐÒ (Nghi ngờ nguồn tin)
+  Bờ sông ─┬─ Xuôi dòng (theo bản đồ) ──► lạc về Quán lá
+           ├─ Quán lá (Cô hàng quán)
+           └─ Ngược dòng ──► Bến đò (Ông lái đò) ──► PHÁN XỬ CUỐI
+```
+
+### Khu 1: Chợ phiên
+
+- **Bà lão bán nước chè** nói thật vào buổi Sáng và Chiều, nói ngược vào buổi Tối. Bà đã báo trước: *"Già rồi, trời tối là lú lẫn, nói gì cũng ngược cả."* Hỏi lúc tỉnh táo, bà nói lối ra là **dốc đá**. Có thể ngồi uống chè ở quán để chờ sang buổi sau.
+- **Cậu bé chăn trâu**: (a) **4** chân: gọi đuôi là chân thì đuôi vẫn là đuôi; (b) **0** con: tiếng súng làm chim bay hết; (c) **tất cả các tháng**. Bí mật: *"Mỗi lần đi qua, thứ gì thay đổi thì đi theo phía đó."*
+- **Đường làng**: bấm "Đi tiếp", nhớ kỹ hai bên đường (con quạ đậu cành trên hay dưới, số bậc đá 8 hay 7, màu vải cây nêu). Mỗi đoạn có đúng một chi tiết đổi ở một phía; đi về **phía có chi tiết đổi**. Đúng 3 lần liên tiếp thì tới Ngã ba; sai thì quay lại đầu đường.
+- **Phán xử: DỐC ĐÁ.** Cổng tre là lời của Người lạ (và của bà lão lúc nói ngược).
+
+### Khu 2: Đình làng
+
+- Vừa bước vào sân đình, trống đánh **3 tiếng**. Người lạ nói theo quy luật 2 → 4 → 8 → *"hôm nay chắc chắn 16"*. Ông từ hỏi hôm nay trống đánh mấy tiếng: **3** (tin tai mình, không tin quy luật).
+- **Bốn cụ bô lão** (đúng một người nói dối):
+  - Cụ Giáp: "Cụ Ất giữ chìa khóa." Cụ Ất: "Tôi không giữ chìa khóa."
+  - Cụ Bính: "Tôi và cụ Đinh đều không giữ." Cụ Đinh: "Cụ Giáp nói dối."
+  - Giả sử cụ Ất nói dối thì cụ Đinh nói thật, nên cụ Giáp cũng nói dối: hai người nói dối, loại.
+  - Giả sử cụ Bính hoặc cụ Đinh nói dối thì cụ Giáp nói thật, nên cụ Ất giữ chìa. Nhưng cụ Ất (nói thật) bảo không giữ: mâu thuẫn, loại.
+  - **Cụ Giáp nói dối, và cụ Giáp giữ chìa khóa.**
+- Nhận **Chìa khóa đồng**, vào Túi đồ, bấm **Dùng lên…** rồi chạm cửa hậu cung. Mở hòm gỗ lấy **Tấm bản đồ làng**. Người lạ khuyên "cứ theo bản đồ mà đi".
+- Bản đồ **lệch thêm một chi tiết mỗi buổi**: bến đò dịch sang xuôi dòng, thêm "lối tắt" không có thật, cây đa đổi chỗ, mũi tên dòng chảy bị vẽ ngược, thêm một bến đò giả.
+
+### Khu 3: Rừng trúc
+
+- **Thầy đồ** (mỗi lần xin gợi ý −5 Tỉnh táo): (a) **tên** / cái tên; (b) **cái hố** / cái lỗ; (c) "Lối ra nằm ở chỗ CÁ ĐUỐI": nói lái thành **CUỐI ĐÁ**, tức phía sau tảng đá lớn. Thầy dặn thêm: *"Khi thấy chữ kết thúc, hãy nhìn vào chữ tròn như cửa."*
+- **Lối trúc đôi**: bóng luôn quay lưng về phía nguồn sáng. Buổi **sáng** (mặt trời ở đông, bên phải) và **tối** (trăng mọc đằng đông) thì đi **lối bên trái** (bóng đổ về tây). Buổi **chiều** (mặt trời ở tây) thì đi **lối bên phải**. Đi sai sẽ bị đưa về bìa rừng.
+- **Tảng đá lớn** → "Vòng ra cuối tảng đá" → màn **GAME OVER** giả. Nút "Chơi lại từ đầu" chỉ hiện *"Thật sao? Bỏ cuộc dễ vậy à?"* rồi quay lại. Lối thoát thật là bấm vào **chữ O** trong "GAME OVER". Đây là chữ tròn thứ hai sau chữ G, và nó nhấp nháy rất nhẹ.
+
+### Khu 4: Bến đò
+
+- Ông lái đò hát vọng qua sông: *"đi ngược dòng nước"*. Nước chảy từ phải sang trái, nên **ngược dòng là sang phải**.
+- Đi xuôi dòng theo bản đồ hoặc đi theo Người lạ thì bị lạc về Quán lá (lỗi *Tin công cụ tuyệt đối* / *Vội vàng dưới áp lực*).
+- **Phán xử cuối**: kẻ dẫn đi vòng là **Người lạ đội nón**. Bằng chứng hợp lệ (tự ghi vào sổ tay khi gặp):
+
+  | Mã | Bằng chứng | Có khi |
+  | --- | --- | --- |
+  | `ev_cong_tre` | Hắn chỉ lối cổng tre (sai) | Ngay đầu game |
+  | `ev_trong_16` | Hắn đoán trống đánh 16 tiếng (sai) | Vào sân đình |
+  | `ev_moi_canh` | Hắn đứng ở mọi đoạn của đường làng vòng lặp | Đi đúng ít nhất 1 đoạn đường làng |
+  | `ev_giuc_voi` | Hắn luôn giục vội | Sau lần giục thứ 3 |
+  | `ev_ban_do` | Bản đồ lệch từ khi hắn gợi ý dùng bản đồ | Xem bản đồ sau ≥ 1 buổi, hoặc đi theo bản đồ ở Bến đò |
+  | `ev_han_chot` | Hạn chót là giả | Kết ẩn (qua Ngày 3 Tối) |
+
+### Kết thúc
+
+| Kết thúc | Điều kiện |
+| --- | --- |
+| **Kết tốt: Sương tan** | Buộc tội Người lạ, chọn ≥ 2 bằng chứng hợp lệ (số bằng chứng hợp lệ nhiều hơn số bằng chứng sai) và Tỉnh táo ≥ 60. |
+| **Kết trung: Làng vẫn còn đó** | Buộc tội đúng nhưng Tỉnh táo < 60 hoặc bằng chứng yếu. |
+| **Kết vòng lặp: Lần thứ hai…** | Buộc tội sai người. Tỉnh dậy giữa chợ phiên Ngày 1 (New Game+): giữ nguyên sổ tay, nhưng bà lão nói ngược vào **buổi Sáng**, câu đố của cậu bé đảo thứ tự (c → b → a), câu đố thầy đồ đổi thứ tự (b → a → c). |
+| **Kết ẩn: Ngày thứ tư** | Để thời gian trôi qua Ngày 3 Tối khi vẫn còn trong làng. Không có gì xảy ra; đồng hồ hiện "Ngày 4"; Người lạ bối rối: *"Sao… cậu vẫn còn ở đây?"* Mở khóa bằng chứng đặc biệt "Hạn chót là giả", +20 Tỉnh táo, rồi chơi tiếp bình thường. |
+
+Đi thẳng tới đích không mắc lỗi nào mất khoảng 26 hành động (tới Ngày 3 Sáng). Người chơi khám phá kỹ sẽ dễ vượt quá hạn chót và gặp kết ẩn.
+
+### Thành tựu
+
+| Thành tựu | Cách đạt |
+| --- | --- |
+| Mắt cú vọ | Qua đường làng mà không đi sai lần nào. |
+| Không nói dối được tôi | Giải câu đố bô lão đúng ngay lần đầu. |
+| Chữ tròn như cửa | Thoát màn Game Over giả. |
+| Không vội | Đạt kết ẩn. |
+| Không cần gợi ý | Qua Rừng trúc mà không xin gợi ý nào. |
+| Tỉnh táo tuyệt đối | Kết thúc với 100 Tỉnh táo (đi thẳng không sai lần nào là đạt). |
+
+### Các lỗi tư duy (thẻ "Bạn đã giả định gì?")
+
+| Lỗi | Gặp khi |
+| --- | --- |
+| Tin nguồn có thẩm quyền | Chọn cổng tre vì tin "người dẫn đường"; tin màn GAME OVER; buộc tội ông lái đò |
+| Vội vàng dưới áp lực | Đi theo Người lạ ở Bến đò |
+| Bám quy luật bỏ qua thực tế | Trả lời trống đình đánh 16 tiếng |
+| Phản xạ trực giác | Trả lời sai câu đố mẹo, đi sai đường làng, giải sai câu đố bô lão, chọn lối ruộng |
+| Bỏ qua ngữ cảnh thời gian | Tin lời bà lão lúc bà nói ngược; chọn sai lối trúc; buộc tội bà lão |
+| Tin công cụ tuyệt đối | Đi xuôi dòng theo bản đồ |
+
+</details>
